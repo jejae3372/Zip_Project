@@ -1,0 +1,132 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include <stdio.h>
+#include <stdlib.h>
+
+void name_(int* bin, int cnt, int* off, int sum, int num) { //바이너리 , i 번째 순서 , 각각 offset , 파일 총 개수
+
+	FILE* wri;
+	int i, j, k;
+	int len_1 = 0;
+	int len_2 = 0;
+	int len_3 = 0;
+	int len_4 = 0;
+	int len_5 = 0;
+	int len_6 = 0;
+	
+	int sum_1 = 0;
+	char name;
+	printf("\n %d - th file name : ", cnt + 1);
+	for (k = 0; k < num; k++) {   //한 파일 당 들어갈 것  : 그 파일의 시작 offset 
+		if (k == off[cnt] + 26) {           // 각각 시작지점에서 26바이트 뒤 
+			len_1 = bin[k];
+		}
+		else if (k == off[cnt] + 27) {    // ~ 27바이트 뒤
+			len_2 = bin[k];
+		}
+		else if (k == off[cnt] + 30) {     // 30바이트 뒤 
+			len_3 = len_1 + len_2;
+			for (j = off[cnt] + 30; j < off[cnt] + 30 + len_3; j++) {
+				name = bin[j];
+				printf("%c", name);
+			}
+		}
+		else if (k == off[cnt] + 28) {    //28 과 29를 통해 내부데이터의 길이를 계산
+			len_4 = bin[k];
+		}
+		else if (k == off[cnt] + 29){
+			len_5 = bin[k];
+			len_6 = len_4 + len_5;
+		}
+	}
+
+	for (i = (off[cnt] + 31 + len_3) - 1; i < num; i++) {    // 50 4B 01 02 또는 50 4B 03 04를 만날 때까지 반복
+		if (bin[i] == 0x50 && bin[i + 1] == 0x4B && bin[i + 2] == 0x01 && bin[i + 3] == 0x02) {
+			break;
+		}
+		else if (bin[i] == 0x50 && bin[i + 1] == 0x4B && bin[i + 2] == 0x03 && bin[i + 3] == 0x04) {
+			break;
+		}
+		sum_1 += 1;  //데이터의 크기 
+	}
+	printf("\n크기: %d\n", sum_1);
+	wri = fopen("data_memory.txt", "a+");
+	if (wri == NULL) {
+		fprintf(stderr, "fopen_error");
+	}
+
+	for (i = (off[cnt] + 30 + len_3)  ; i < off[cnt] + 30 + len_3 + sum_1; i++) {
+			printf(" %02x ", bin[i]);
+			fputc(bin[i], wri);
+	}
+	fputs("\n",wri);
+	
+
+	fclose(wri);
+	
+	printf("\n%d-th File data offset(데이터 저장공간 offset): %d", cnt + 1, off[cnt] + 31 + len_3); // 30 + 파일 이름 길이 + 1 부터 
+	
+}
+
+void test() {
+
+	FILE* fp;
+	int cnt_i;
+	int i, j;
+	int a[10000];
+	int b[10000];
+	char name;
+	char path[1000];
+	int cnt = 0;
+	int num = 0;
+	int sum = 0;
+
+
+	printf("파일 경로를 입력 하세요 : ");
+	gets(path);
+
+	fp = fopen(path, "rb");
+	if (fp == NULL) {
+		fprintf(stderr, "fopen() error\n");
+	}
+	// 배열에 바이너리 값들 넣기 , zip 파일의 총 바이트 길이 구하기.
+
+	while (1) {
+		i = fgetc(fp);
+		if ( i < 0) {
+			break;
+		}
+		a[num] = i;
+		num += 1;
+	}
+	printf("총 바이트 : %d\n", num);
+
+
+	//50 4B 03 04 찾을때마다 Next file offset + 파일의 개수 세기 (sum)
+	for (cnt_i = 0; cnt_i < num; cnt_i++) {
+		if (a[cnt_i] == 0x50) {
+			if (a[cnt_i + 1] == 0x4B) {
+				if (a[cnt_i + 2] == 0x03) {
+					if (a[cnt_i + 3] == 0x04) {
+						printf("\n file offset(시작위치) : %d", cnt_i + 1);
+						sum += 1;                  // 파일 개수 1개씩 추가
+						b[cnt] = cnt_i;            // offset 값을 배열에 하나씩 추가
+						cnt += 1;
+					}
+				}
+			}
+		}
+	}
+
+	printf("\n파일 개수 : %d", sum);
+	for (i = 0; i < sum; i++) {
+		name_(a, i, b, sum, num);
+	}
+
+}
+
+	
+
+int main(){
+	test();
+
+}
